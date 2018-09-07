@@ -1,0 +1,58 @@
+version: '3'
+services:
+  mysql-master:
+    image: mariadb
+    environment:
+        - MYSQL_ROOT_PASSWORD=${MYSQL_MASTER_PASSWORD}
+    volumes:
+        - mysqlmaster-vol:/var/lib/mysql
+        - ./my-master.cnf:/etc/mysql/my.cnf
+    hostname: mysql-master
+    networks:
+        - mysql-network
+    healthcheck:
+        test: ["CMD-SHELL", 'mysqladmin ping --silent']
+        interval: 30s
+        timeout: 10s
+        retries: 4
+    
+  mysql-slave:
+    image: mariadb
+    environment:
+        - MYSQL_ROOT_PASSWORD=${MYSQL_SLAVE_PASSWORD}
+    volumes:
+        - mysqlslave-vol:/var/lib/mysql
+        - ./my-slave.cnf:/etc/mysql/my.cnf
+    hostname: mysql-slave
+    networks:
+        - mysql-network
+    healthcheck:
+        test: ["CMD-SHELL", 'mysqladmin ping --silent']
+        interval: 30s
+        timeout: 10s
+        retries: 4
+
+  mysql-replica-config:
+    image: mariadb
+    environment:
+        - MYSQL_SLAVE_PASSWORD=${MYSQL_SLAVE_PASSWORD}
+        - MYSQL_MASTER_PASSWORD=${MYSQL_MASTER_PASSWORD}
+        - MYSQL_REPLICATION_USER=${MYSQL_REPLICATION_USER}
+        - MYSQL_REPLICATION_PASSWORD=${MYSQL_REPLICATION_PASSWORD}
+        - MASTER_DELAY=${MASTER_DELAY}
+    volumes:
+        - ./mysql.sh:/tmp/mysql.sh
+    depends_on:
+        - mysql-master
+        - mysql-slave
+    networks:
+        - mysql-network
+    command: /bin/bash -x /tmp/mysql.sh
+volumes:
+  mysqlmaster-vol:
+        external: true
+  mysqlslave-vol:
+        external: true
+networks:
+  mysql-network:
+        driver: bridge
